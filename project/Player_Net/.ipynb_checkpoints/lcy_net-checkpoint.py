@@ -60,7 +60,7 @@ class Net(nn.Module):
         self.val_conv1 = nn.Conv2d(256, 32,kernel_size=(3,1), padding=1)
         self.val_fc1 = nn.Linear(1088, 1024)
         self.val_fc2 = nn.Linear(1024, 256)
-        self.val_fc3 = nn.Linear(256, 1) 
+        self.val_fc3 = nn.Linear(256, 4) 
         
     def forward(self, state_input):
         # common layers
@@ -158,11 +158,12 @@ class PolicyValueNet():
         if self.use_gpu:
             log_act_probs, value = self.nets[action_type]['net'](Variable(torch.from_numpy(current_state)).cuda().float())
             act_probs = np.exp(log_act_probs.detach().cpu().numpy().flatten())
+            value = value.detach().cpu().numpy().flatten()
         else:
             log_act_probs, value = self.nets[action_type]['net'](Variable(torch.from_numpy(current_state)).float())
             act_probs = np.exp(log_act_probs.detach().numpy().flatten())
+            value = value.detach().numpy().flatten()
         act_probs = zip(legal_positions, act_probs[legal_positions])
-        value = value.item()
         return act_probs, value
 
     def train_step(self, state_batch, mcts_probs, score_batch, action_type, lr):
@@ -186,7 +187,7 @@ class PolicyValueNet():
         log_act_probs, value = self.nets[action_type]['net'](state_batch)
         # define the loss = (z - v)^2 - pi^T * log(p) + c||theta||^2
         # Note: the L2 penalty is incorporated in optimizer
-        value_loss = F.mse_loss(value.view(-1), score_batch)
+        value_loss = F.mse_loss(value, score_batch)
         policy_loss = -torch.mean(torch.sum(mcts_probs*log_act_probs, 1))
         loss = value_loss + policy_loss
         # backward and optimize

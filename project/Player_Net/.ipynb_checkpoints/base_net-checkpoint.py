@@ -61,7 +61,7 @@ class Net(nn.Module):
         self.val_conv1 = nn.Conv2d(256, 32,kernel_size=(3,1), padding=1)
         self.val_fc1 = nn.Linear(1088, 1024)
         self.val_fc2 = nn.Linear(1024, 256)
-        self.val_fc3 = nn.Linear(256, 1) 
+        self.val_fc3 = nn.Linear(256, 4) 
         
     def forward(self, state_input):
         # common layers

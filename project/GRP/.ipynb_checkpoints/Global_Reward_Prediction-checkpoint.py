@@ -22,13 +22,36 @@ def set_learning_rate(optimizer, lr):
 class GRP_Net(nn.Module):
     def __init__(self):
         super().__init__()
+        self.val_fc1 = nn.Linear(7, 32)
+        self.val_fc2 = nn.Linear(32, 128)
         
+        self.extra_fc1 = nn.Linear(128,512)
+        self.extra_fc2 = nn.Linear(512,512)
+        self.extra_fc3 = nn.Linear(512,128)
+        
+        self.val_fc3 = nn.Linear(128, 32)
+        self.val_fc4 = nn.Linear(32, 4)
         
     def forward(self, state_input):
+        x = F.relu(self.val_fc1(state_input))
+        x = F.relu(self.val_fc2(x))
         
+        x = F.relu(self.extra_fc1(x))
+        x = F.relu(self.extra_fc2(x))
+        x = F.relu(self.extra_fc3(x))
+        
+        x = F.relu(self.val_fc3(x))
+        x = F.tanh(self.val_fc4(x))
+        return x
+        
+
 class GRP():
-    def __init__(self, model_file=None):
-        self.grp_net=GRP_Net().cuda()
+    def __init__(self, model_file=None, use_gpu=True):
+        self.use_gpu=use_gpu
+        if self.use_gpu:
+            self.grp_net=GRP_Net().cuda()
+        else :
+            self.grp_net=GRP_Net()
         self.l2_const = 1e-4
         self.optimizer = optim.Adam(self.grp_net.parameters(),weight_decay=self.l2_const)
         if model_file:
@@ -36,25 +59,41 @@ class GRP():
             self.grp_net.load_state_dict(net_params)
         
     def get_reward(self, state_input):
-        
+        if self.use_gpu:
+            state_input = Variable(torch.FloatTensor(state_input).cuda())
+        else :
+            state_input = Variable(torch.FloatTensor(state_input))
+        predicts = self.grp_net(state_input)
+        return predicts.detach().cpu().numpy()
     
-    def train_step(self, state_batch, target_batch, lr):
+    def get_loss(self,state_batch, target_batch):
+        if self.use_gpu:
+            state_batch = Variable(torch.FloatTensor(state_batch).cuda())
+            target_batch = Variable(torch.FloatTensor(target_batch).cuda())
+        else :
+            state_batch = Variable(torch.FloatTensor(state_batch))
+            target_batch = Variable(torch.FloatTensor(target_batch))
+        # forward
+        predicts = self.grp_net(state_batch)
+        loss = F.mse_loss(predicts, target_batch)
+        return loss.item()
+    
+    def train_step(self, state_batch, target_batch):
         # wrap in Variable
-        state_batch = Variable(torch.FloatTensor(state_batch).cuda())
-        target_batch = Variable(torch.FloatTensor(target_batch).cuda())
+        if self.use_gpu:
+            state_batch = Variable(torch.FloatTensor(state_batch).cuda())
+            target_batch = Variable(torch.FloatTensor(target_batch).cuda())
+        else :
+            state_batch = Variable(torch.FloatTensor(state_batch))
+            target_batch = Variable(torch.FloatTensor(target_batch))
 
         # zero the parameter gradients
         self.optimizer.zero_grad()
-        # set learning rate
-        set_learning_rate(self.optimizer, lr)
-        
         # forward
-        log_predicts = self.grp_net(state_batch)
+        predicts = self.grp_net(state_batch)
         # define the loss = (z - v)^2 + c||theta||^2
         # Note: the L2 penalty is incorporated in optimizer
-        #loss = F.mse_loss(value.view(-1), winner_batch)
-        #policy_loss = -torch.mean(torch.sum(mcts_probs*log_act_probs, 1))
-        loss = 0
+        loss = F.mse_loss(predicts, target_batch)
         # backward and optimize
         loss.backward()
         self.optimizer.step()
@@ -70,4 +109,53 @@ class GRP():
         torch.save(net_params, model_file)
     
 if __name__ == '__main__':
+    train_dat = np.load('train_dat.npy', allow_pickle=True);
+    train_len = len(train_dat)
+    test_len = train_len // 10
+    test_dat = train_dat[0:test_len]
+    train_dat = train_dat[test_len:]
+    train_len -= test_len
     
+    # '''
+    # train
+    grp = GRP()
+    for i in range(200):
+        choiced_idx = np.random.choice(train_len,512,replace=False)
+        # print(choiced_idx)
+        state_batch = []
+        target_batch = []
+        for idx in choiced_idx:
+            state_batch.append(train_dat[idx][0])
+            target_batch.append(train_dat[idx][1])
+        state_batch = np.array(state_batch)
+        target_batch = np.array(target_batch)
+        # print(grp.get_loss(state_batch, target_batch))
+        print(i,grp.train_step(state_batch, target_batch))
+    grp.save_model('grp_200_extra.model')
+    # '''
+    # '''
+    # test
+    # grp = GRP('grp_1.model')
+    for i in range(4):
+        choiced_idx = np.random.choice(test_len,512,replace=False)
+        # print(choiced_idx)
+        state_batch = []
+        target_batch = []
+        for idx in choiced_idx:
+            state_batch.append(train_dat[idx][0])
+            target_batch.append(train_dat[idx][1])
+        state_batch = np.array(state_batch)
+        target_batch = np.array(target_batch)
+        print(grp.get_loss(state_batch, target_batch))
+        choiced_idx = np.random.choice(512,4,replace=False)
+        state = []
+        target = []
+        for idx in choiced_idx:
+            state.append(state_batch[idx])
+            target.append(target_batch[idx])
+        state = np.array(state)
+        target = np.array(target)
+        predict = grp.get_reward(state)
+        for j in range(4):
+            print(state[j],target[j],predict[j])
+    # '''

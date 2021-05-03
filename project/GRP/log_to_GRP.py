@@ -1,73 +1,92 @@
 # -*- coding: utf-8 -*-
 """
-用于预测终局后的最终得分。
-用于辅助计算每轮游戏结束后得分来进行弃牌和鸣牌模型的训练
-
-@author:Cahoyang Li
+将2020.db里的对局记录转成GRP模型的训练数据
+输入：7 (场风，庄家，本场，4家点数)
+输出：4*[-1,1] (pt_changed/100)
 """
-
-from __future__ import print_function
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import torch.nn.functional as F
-from torch.autograd import Variable
+import os
+import bz2
+import hashlib
+import sqlite3
+import threading
+from datetime import datetime
 import numpy as np
 
-def set_learning_rate(optimizer, lr):
-    """Sets the learning rate to the given value"""
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
+import requests
 
-class GRP_Net(nn.Module):
-    def __init__(self):
-        super().__init__()
-        
-        
-    def forward(self, state_input):
-        
-class GRP():
-    def __init__(self, model_file=None):
-        self.grp_net=GRP_Net().cuda()
-        self.l2_const = 1e-4
-        self.optimizer = optim.Adam(self.grp_net.parameters(),weight_decay=self.l2_const)
-        if model_file:
-            net_params = torch.load(model_file)
-            self.grp_net.load_state_dict(net_params)
-        
-    def get_reward(self, state_input):
-        
-    
-    def train_step(self, state_batch, target_batch, lr):
-        # wrap in Variable
-        state_batch = Variable(torch.FloatTensor(state_batch).cuda())
-        target_batch = Variable(torch.FloatTensor(target_batch).cuda())
+db_folder = os.path.dirname(os.path.realpath(__file__))
 
-        # zero the parameter gradients
-        self.optimizer.zero_grad()
-        # set learning rate
-        set_learning_rate(self.optimizer, lr)
+def get_rb(opt):
+    ls = opt.split()
+    for st in ls:
+        if st[0:4]=='seed' :
+            ss = st[6:-1].split(',')
+            return int(ss[0]),int(ss[1])
+
+def get_score(opt):
+    ls = opt.split()
+    for st in ls:
+        if st[0:2]=='sc' :
+            ss = st[4:-1].split(',')
+            return [int(ss[0])+int(ss[1]),int(ss[2])+int(ss[3]),int(ss[4])+int(ss[5]),int(ss[6])+int(ss[7])]
         
-        # forward
-        log_predicts = self.grp_net(state_batch)
-        # define the loss = (z - v)^2 + c||theta||^2
-        # Note: the L2 penalty is incorporated in optimizer
-        #loss = F.mse_loss(value.view(-1), winner_batch)
-        #policy_loss = -torch.mean(torch.sum(mcts_probs*log_act_probs, 1))
-        loss = 0
-        # backward and optimize
-        loss.backward()
-        self.optimizer.step()
-        return loss.item()
+def get_tar(opt):
+    ls = opt.split()
+    for st in ls:
+        if st[0:5]=='owari' :
+            ss = st[7:-1].split(',')
+            return [float(ss[1])/100,float(ss[3])/100,float(ss[5])/100,float(ss[7])/100]
+
+def get_data(binary_content):
+    content = str(binary_content,'utf-8')
+    # print(content)
+    opts = content.split('>')
+    datas = []
+    target = [0,0,0,0]
+    wind = 0
+    oya = 0
+    ba = 0
+    for opt in opts:
+        if opt[0:5]=='<INIT' :
+            roundnumber,ba = get_rb(opt)
+            wind = roundnumber // 4
+            oya = roundnumber % 4
+        if opt[0:6]=='<AGARI':
+            score = get_score(opt)
+            datas.append((wind,oya,ba,score[0],score[1],score[2],score[3]))
+            if  opt.find('owari')>=0 :
+                target = get_tar(opt)
+    return datas, target
+
+def main():
+    db_file = os.path.join(db_folder, "2020.db")
+    train_dat = []
+    connection = sqlite3.connect(db_file)
+    with connection:
+        cursor = connection.cursor()
+        # cursor.execute("SELECT log_content from logs where is_processed = 1 and was_error = 0 limit 0,100;")
+        cursor.execute("SELECT log_content from logs where is_processed = 1 and was_error = 0;")
+        data = cursor.fetchall()
+        cnt = 1
+        for log in data:
+            try:
+                binary_content = bz2.decompress(log[0])
+            except:
+                print("Can not uncompress log content")
+            # print(binary_content)
+            # print(get_data(binary_content))
+            datas, target = get_data(binary_content)
+            if target[0]<0.005 and target[1]<0.005 and target[2]<0.005 and target[3]<0.005 :
+                continue;
+            # target = tuple(target)
+            for dat in datas:
+                train_dat.append([list(dat),target])
+            if cnt%1000==0 :
+                print(cnt)
+            cnt += 1
+    # print(train_dat[0:])
+    train_dat=np.array(train_dat)
+    np.save('train_dat',train_dat)
     
-    def get_param(self):
-        net_params = self.grp_net.state_dict()
-        return net_params
-    
-    def save_model(self, model_file):
-        """ save model params to file """
-        net_params = self.get_param()  # get model params
-        torch.save(net_params, model_file)
-    
-if __name__ == '__main__':
-    
+if __name__ == "__main__":
+    main()
