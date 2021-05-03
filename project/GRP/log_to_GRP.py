@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-将2020.db里的对局记录转成GRP模型的训练数据
-输入：7 (场风，庄家，本场，4家点数)
-输出：4*[-1,1] (pt_changed/100)
-"""
+
 import os
 import bz2
 import hashlib
@@ -37,6 +33,19 @@ def get_tar(opt):
             ss = st[7:-1].split(',')
             return [float(ss[1])/100,float(ss[3])/100,float(ss[5])/100,float(ss[7])/100]
 
+def rank_tar(target):
+    # print(target)
+    dat=[0,0,0,0]
+    pt=[0.75,0.25,0,-1]
+    for i in range(4):
+        for j in range(4):
+            if j<i and target[j]>=target[i] :
+                dat[i] +=1
+            if j>i and target[j]>target[i] :
+                dat[i] +=1
+        dat[i]=pt[dat[i]]
+    return dat
+        
 def get_data(binary_content):
     content = str(binary_content,'utf-8')
     # print(content)
@@ -64,7 +73,7 @@ def main():
     connection = sqlite3.connect(db_file)
     with connection:
         cursor = connection.cursor()
-        # cursor.execute("SELECT log_content from logs where is_processed = 1 and was_error = 0 limit 0,100;")
+        # cursor.execute("SELECT log_content from logs where is_processed = 1 and was_error = 0 limit 0,1;")
         cursor.execute("SELECT log_content from logs where is_processed = 1 and was_error = 0;")
         data = cursor.fetchall()
         cnt = 1
@@ -78,6 +87,7 @@ def main():
             datas, target = get_data(binary_content)
             if target[0]<0.005 and target[1]<0.005 and target[2]<0.005 and target[3]<0.005 :
                 continue;
+            target=rank_tar(datas[-1][3:])
             # target = tuple(target)
             for dat in datas:
                 train_dat.append([list(dat),target])

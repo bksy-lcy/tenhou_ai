@@ -1,161 +1,45 @@
 # -*- coding: utf-8 -*-
-"""
-mahjong game status and play.
-
-@author:Cahoyang Li
-"""
 
 from __future__ import print_function
 import numpy as np
 
-class Status(object):
-    """status for mahjong"""
-    def __init__(self,**kwargs):
-        """初始化参数"""
-    def init_stauts():
-        """"""
-    def init_round():
-        """"""
-    def actions():
-        """"""
-    def do_action():
+
+class Game_Server(object):
+    def __init__(self, setting=None):
+        self.TENHOU_HOST = "133.242.10.78"
+        self.TENHOU_PORT = 10080
+        self.USER_ID = "NoName"
+        self.LOBBY = "0"
+        self.WAITING_GAME_TIMEOUT_MINUTES = 10
+        self.IS_TOURNAMENT = False
+        self.STAT_SERVER_URL = ""
+        self.STAT_TOKEN = ""
+        self.PAPERTRAIL_HOST_AND_PORT = ""
+        self.SENTRY_URL = ""
+        self.LOG_PREFIX = ""
+        self.PRINT_LOGS = True
+        self.TOURNAMENT_API_TOKEN = None
+        self.TOURNAMENT_API_URL = None
+        self.GAME_TYPE = "1"
+        if setting:
+            #自定义部分
+            pass
         
-    def round_end():
+    def self_play(self,players):
         
-    def game_end():
-        
-
-
-class Board(object):
-    """board for the game"""
-
-    def __init__(self, **kwargs):
-        self.width = int(kwargs.get('width', 8))
-        self.height = int(kwargs.get('height', 8))
-        # board states stored as a dict,
-        # key: move as location on the board,
-        # value: player as pieces type
-        self.states = {}
-        # need how many pieces in a row to win
-        self.n_in_row = int(kwargs.get('n_in_row', 5))
-        self.players = [1, 2]  # player1 and player2
-
-    def init_board(self, start_player=0):
-        if self.width < self.n_in_row or self.height < self.n_in_row:
-            raise Exception('board width and height can not be '
-                            'less than {}'.format(self.n_in_row))
-        self.current_player = self.players[start_player]  # start player
-        # keep available moves in a list
-        self.availables = list(range(self.width * self.height))
-        self.states = {}
-        self.last_move = -1
-
-    def move_to_location(self, move):
-        """
-        3*3 board's moves like:
-        6 7 8
-        3 4 5
-        0 1 2
-        and move 5's location is (1,2)
-        """
-        h = move // self.width
-        w = move % self.width
-        return [h, w]
-
-    def location_to_move(self, location):
-        if len(location) != 2:
-            return -1
-        h = location[0]
-        w = location[1]
-        move = h * self.width + w
-        if move not in range(self.width * self.height):
-            return -1
-        return move
-
-    def current_state(self):
-        """return the board state from the perspective of the current player.
-        state shape: 4*width*height
-        """
-
-        square_state = np.zeros((4, self.width, self.height))
-        if self.states:
-            moves, players = np.array(list(zip(*self.states.items())))
-            move_curr = moves[players == self.current_player]
-            move_oppo = moves[players != self.current_player]
-            square_state[0][move_curr // self.width,
-                            move_curr % self.height] = 1.0
-            square_state[1][move_oppo // self.width,
-                            move_oppo % self.height] = 1.0
-            # indicate the last move location
-            square_state[2][self.last_move // self.width,
-                            self.last_move % self.height] = 1.0
-        if len(self.states) % 2 == 0:
-            square_state[3][:, :] = 1.0  # indicate the colour to play
-        return square_state[:, ::-1, :]
-
-    def do_move(self, move):
-        self.states[move] = self.current_player
-        self.availables.remove(move)
-        self.current_player = (
-            self.players[0] if self.current_player == self.players[1]
-            else self.players[1]
-        )
-        self.last_move = move
-
-    def has_a_winner(self):
-        width = self.width
-        height = self.height
-        states = self.states
-        n = self.n_in_row
-
-        moved = list(set(range(width * height)) - set(self.availables))
-        if len(moved) < self.n_in_row *2-1:
-            return False, -1
-
-        for m in moved:
-            h = m // width
-            w = m % width
-            player = states[m]
-
-            if (w in range(width - n + 1) and
-                    len(set(states.get(i, -1) for i in range(m, m + n))) == 1):
-                return True, player
-
-            if (h in range(height - n + 1) and
-                    len(set(states.get(i, -1) for i in range(m, m + n * width, width))) == 1):
-                return True, player
-
-            if (w in range(width - n + 1) and h in range(height - n + 1) and
-                    len(set(states.get(i, -1) for i in range(m, m + n * (width + 1), width + 1))) == 1):
-                return True, player
-
-            if (w in range(n - 1, width) and h in range(height - n + 1) and
-                    len(set(states.get(i, -1) for i in range(m, m + n * (width - 1), width - 1))) == 1):
-                return True, player
-
-        return False, -1
-
-    def game_end(self):
-        """Check whether the game is ended or not"""
-        win, winner = self.has_a_winner()
-        if win:
-            return True, winner
-        elif not len(self.availables):
-            return True, -1
-        return False, -1
-
-    def get_current_player(self):
-        return self.current_player
-
-
+    def online_play(self,player):
+        #get conect
+        #search game
+        #start game
+        #end game
+'''
 class Game(object):
-    """game server"""
 
     def __init__(self, board, **kwargs):
         self.board = board
 
     def graphic(self, board, player1, player2):
-        """Draw the board and show game info"""
+        # Draw the board and show game info
         width = board.width
         height = board.height
 
@@ -179,7 +63,7 @@ class Game(object):
             print('\r\n\r\n')
 
     def start_play(self, player1, player2, start_player=0, is_shown=1):
-        """start a game between two players"""
+        # start a game between two players
         if start_player not in (0, 1):
             raise Exception('start_player should be either 0 (player1 first) '
                             'or 1 (player2 first)')
@@ -207,9 +91,8 @@ class Game(object):
                 return winner
 
     def start_self_play(self, player, is_shown=0, temp=1e-3):
-        """ start a self-play game using a MCTS player, reuse the search tree,
-        and store the self-play data: (state, mcts_probs, z) for training
-        """
+        # start a self-play game using a MCTS player, reuse the search tree,
+        # and store the self-play data: (state, mcts_probs, z) for training
         self.board.init_board()
         p1, p2 = self.board.players
         states, mcts_probs, current_players = [], [], []
@@ -240,3 +123,4 @@ class Game(object):
                     else:
                         print("Game end. Tie")
                 return winner, zip(states, mcts_probs, winners_z)
+'''

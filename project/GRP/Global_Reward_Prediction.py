@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-用于预测终局后的最终得分。
-用于辅助计算每轮游戏结束后得分来进行弃牌和鸣牌模型的训练
-
-@author:Cahoyang Li
-"""
 
 from __future__ import print_function
 import torch
@@ -27,7 +21,10 @@ class GRP_Net(nn.Module):
         
         self.extra_fc1 = nn.Linear(128,512)
         self.extra_fc2 = nn.Linear(512,512)
-        self.extra_fc3 = nn.Linear(512,128)
+        self.extra_fc3 = nn.Linear(512,512)
+        self.extra_fc4 = nn.Linear(512,512)
+        self.extra_fc5 = nn.Linear(512,512)
+        self.extra_fc6 = nn.Linear(512,128)
         
         self.val_fc3 = nn.Linear(128, 32)
         self.val_fc4 = nn.Linear(32, 4)
@@ -39,6 +36,9 @@ class GRP_Net(nn.Module):
         x = F.relu(self.extra_fc1(x))
         x = F.relu(self.extra_fc2(x))
         x = F.relu(self.extra_fc3(x))
+        x = F.relu(self.extra_fc4(x))
+        x = F.relu(self.extra_fc5(x))
+        x = F.relu(self.extra_fc6(x))
         
         x = F.relu(self.val_fc3(x))
         x = F.tanh(self.val_fc4(x))
@@ -119,7 +119,7 @@ if __name__ == '__main__':
     # '''
     # train
     grp = GRP()
-    for i in range(200):
+    for i in range(300):
         choiced_idx = np.random.choice(train_len,512,replace=False)
         # print(choiced_idx)
         state_batch = []
@@ -131,7 +131,7 @@ if __name__ == '__main__':
         target_batch = np.array(target_batch)
         # print(grp.get_loss(state_batch, target_batch))
         print(i,grp.train_step(state_batch, target_batch))
-    grp.save_model('grp_200_extra.model')
+    grp.save_model('grp_300_extra_3.model')
     # '''
     # '''
     # test

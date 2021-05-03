@@ -4,12 +4,12 @@
 ## 1.3 train: Global_Reward_Prediction.py
 # 2.train player
 ## 2.1 self_play_server: game.py
-## 2.2 player_net for (action,prob): lcy_net.py //draw/ron/discard/kong/pong/chow/dora_net.py
+## 2.2 player_net for (action,prob): lcy_net.py //draw/ron/discard/kong/pong/chow/dora/reach_net
 ## 2.3 player_mcts: mcts_lcy.py
 ## 2.4 tarin(self_play): train.py
 # 3.inline test
 ## 3.1 online_play_server: game.py
-## 3.2 online_game_start: game_start.py
+## 3.2 online_game_start: online_game.py
 
 # 调用
 log_to_GRP
@@ -23,11 +23,11 @@ game_start->game->...
 2.本场 34，1
 3.立直棒 34，1
 4.巡目 34，1
-5.场风 34，1
-6.自风 34，1
-7.宝牌 34，5
-8.当前玩家 34，1
-9.当前状态 34，1
+5.当前玩家 34，1
+6.主玩家 34，1
+7.场风 34，1
+8.自风 34，1
+9.宝牌 34，5
 8.自.手牌 34，17 14+3（红宝牌）
 9.自.副露 34，32 32=（（5+3）* 4） 5=4（副露牌）+1（哪张来自其他人） 3（红宝牌）
 10.自.牌河 34，34
@@ -89,7 +89,11 @@ game_start->game->...
 输入：920*34*1
 输出：34，4
 内部：34：{（3*1，256），【（3*1，256），（3*1，256）】*5，（1*1，1）}，1：{（3*1，256），【（3*1，256），（3*1，256）】*5，（3*1，32），fc(*1024*256*1)}
-## 最终得分预测
+## 立直
+输入：920*34*1
+输出：2，4
+内部：2：{（3*1，256），【（3*1，256），（3*1，256）】*5，（3*1，32），fc(*1024*256*1)}，1：{（3*1，256），【（3*1，256），（3*1，256）】*5，（3*1，32），fc(*1024*256*1)}
+## 最终得分预测 不采用？或采用部分？
 输入：7：3+4=场风+轮次+本场+目前点数
 输出：4
-内部：7*32*128(*512*512*128)*32*4
+内部：7*32*128(*512*512*512*512*512*128)*32*4

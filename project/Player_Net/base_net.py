@@ -1,8 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-基础网络
-@author: Cahoyang Li
-"""
 
 # 32*34=1088
 
