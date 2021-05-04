@@ -27,11 +27,14 @@ def tile_type(x):
     return 3
 
 def get_melds(openhand,open_cnt):
-    
+    melds=[]
+    for i in range(open_cnt):
+        tile=[i for i in range(136) if openhand[open_cnt*2][i][0]==1]
+        opens=[i for i in range(136) if openhand[open_cnt*2+1][i][0]==1]
+        melds.append(Meld(tiles=tile, opened=(opens!=[])))
+    return melds
 
-"""
-opt: 0,draw 1,dora 2,dsicard 3,ron 4,kong 5,pong 6,chow 7,reach 8,end
-"""
+# opt: 0,draw 1,dora 2,dsicard 3,ron 4,kong 5,pong 6,chow 7,reach 8,end
 def MCT_Nex(player,opt,state,choice,close_kong=0):
     """
     状态转移函数
@@ -491,7 +494,7 @@ class Game_State(object):
         closehand=[i for i in range(136) if now_closehand[i]==1]
         melds=get_melds(now_openhand,now_open_cnt)
         for m in melds:
-            for tile inm.tiles:
+            for tile in m.tiles:
                 closehand.append(tile)
         dora=[i for i in range(136) if now_dora[i][0]==1]
         wind=[i for i in range(136) if now_wind[i][0]==1][0]//4
@@ -625,7 +628,7 @@ class Game_State(object):
         closehand=[i for i in range(136) if now_closehand[i]==1]
         melds=get_melds(now_openhand,now_open_cnt)
         for m in melds:
-            for tile inm.tiles:
+            for tile in m.tiles:
                 closehand.append(tile)
         dora=[i for i in range(136) if now_dora[i][0]==1]
         wind=[i for i in range(136) if now_wind[i][0]==1][0]//4
@@ -877,7 +880,7 @@ class MCTSPlayer(object):
                 move = np.random.choice(acts,p=_p)
             return move
     
-    def get_move_probs((self, temp=1e-3):
+    def get_move_probs(self, temp=1e-3):
         move_probs = np.zeros(self.game_state.get_num_move())
         acts, probs = self.mcts.get_move_probs(self.game_state, temp)
         move_probs[list(acts)] = probs
