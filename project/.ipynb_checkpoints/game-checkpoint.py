@@ -5,7 +5,7 @@ import numpy as np
 
 
 class Game_Server(object):
-    def __init__(self):
+    def __init__(self, setting=None):
         self.TENHOU_HOST = "133.242.10.78"
         self.TENHOU_PORT = 10080
         self.USER_ID = "NoName"
@@ -20,9 +20,21 @@ class Game_Server(object):
         self.PRINT_LOGS = True
         self.TOURNAMENT_API_TOKEN = None
         self.TOURNAMENT_API_URL = None
+        self.GAME_TYPE = "1"
+        if setting:
+            #自定义部分
+            pass
         
     def self_play(self,players):
-        
+        # init_seat_and_score
+        # while not_end
+        #  init_round
+        #  send_init_round_message
+        #  while not_round_end
+        #   ask_and_deal_action
+        #  score_change
+        #  _get_one_part_data
+        # send_data
     def online_play(self,player):
         #get conect
         #search game

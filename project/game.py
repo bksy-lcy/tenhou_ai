@@ -26,7 +26,15 @@ class Game_Server(object):
             pass
         
     def self_play(self,players):
-        
+        # init_seat_and_score
+        # while not_end
+        #  init_round
+        #  send_init_round_message
+        #  while not_round_end
+        #   ask_and_deal_action
+        #  score_change
+        #  _get_one_part_data
+        # send_data
     def online_play(self,player):
         #get conect
         #search game
