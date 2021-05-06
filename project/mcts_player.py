@@ -27,10 +27,12 @@ def tile_type(x):
     return 3
 
 def get_melds(openhand,open_cnt):
+    if open_cnt==0:
+        return []
     melds=[]
     for i in range(open_cnt):
-        tile=[i for i in range(136) if openhand[open_cnt*2][i][0]==1]
-        opens=[i for i in range(136) if openhand[open_cnt*2+1][i][0]==1]
+        tile=[j for j in range(136) if openhand[i*2][j][0]==1]
+        opens=[j for j in range(136) if openhand[i*2+1][j][0]==1]
         melds.append(Meld(tiles=tile, opened=(opens!=[])))
     return melds
 
@@ -48,11 +50,15 @@ def MCT_Nex(player,opt,state,choice,close_kong=0):
         if state==0 :
             return player,0,0
         if state==1 :
-            return player,4,1
+            return (player+1)%4,0,0
         if state==2 :
             return player,1,0
         if state==3 :
             return player,3,7
+        if state==4 :
+            return player,0,1
+        if state==5:
+            return player,2,0
     if opt==2 :
         if state==0 :
             return player,3,1
@@ -90,12 +96,12 @@ def MCT_Nex(player,opt,state,choice,close_kong=0):
                 return player,8,0
         if state==5 :
             if choice==0 :
-                return player,1,1
+                return player,4,3
             else :
                 return player,8,0
         if state==6 :
             if choice==0 :
-                return player,1,1
+                return player,4,3
             else :
                 return player,8,0
         if state==7 :
@@ -125,16 +131,33 @@ def MCT_Nex(player,opt,state,choice,close_kong=0):
                     return player,1,2
                 else :
                     return player,1,3
+        if state==3:
+            if choice==0 :
+                return player,5,1
+            else :
+                return (player+choice-1)%4,1,4
     if opt==5 :
-        if choice==0 :
-            return player,6,0
-        else :
-            return (player+(choice-1)//4)%4,2,0
+        if state==0:
+            if choice==0 :
+                return player,6,0
+            else :
+                return (player+(choice-1)//4)%4,2,0
+        if state==1:
+            if choice==0 :
+                return player,6,1
+            else :
+                return (player+(choice-1)//4)%4,1,5
     if opt==6 :
-        if choice==0 :
-            return (player+1)%4,0,0
-        else :
-            return (player+1)%4,2,0
+        if state==0:
+            if choice==0 :
+                return (player+1)%4,0,0
+            else :
+                return (player+1)%4,2,0
+        if state==1:
+            if choice==0 :
+                return player,1,1
+            else :
+                return (player+1)%4,1,5
     if opt==7 :
         if state==0 :
             if choice==0 :
@@ -172,7 +195,8 @@ class MCT_TreeNode(object):
     def expand(self,action_priors,close_kong=0):
         for action, prob in action_priors:
             if action not in self._children:
-                self._children[action] = TreeNode(self,prob,self._main_player_id,MCT_Nex(self._now_player_id,self._now_player_opt,self._now_player_opt_state,action,close_kong))
+                mxn=MCT_Nex(self._now_player_id,self._now_player_opt,self._now_player_opt_state,action,close_kong)
+                self._children[action] = MCT_TreeNode(self,prob,self._main_player_id,mxn[0],mxn[1],mxn[2])
     
     def select(self, c_puct):
         return max(self._children.items(), key=lambda act_node: act_node[1].get_value(c_puct))
@@ -190,7 +214,7 @@ class MCT_TreeNode(object):
     def get_value(self, c_puct):
         #
         pid=self._parent._now_player_id
-        pot=self._parent._now_player_opt
+        pop=self._parent._now_player_opt
         pos=self._parent._now_player_opt_state
         player_id=0
         if pop==2 or (pop==4 and pos!=1) or (pop==3 and (pos==0 or pos==4)) or pop==7:
@@ -220,7 +244,7 @@ class MCTS(object):
             converges to the maximum-value policy. A higher value means
             relying on the prior more.
         """
-        self._root = TreeNode(None, 1.0,init_state[0],init_state[2],init_state[3],init_state[4])
+        self._root = MCT_TreeNode(None, 1.0,init_state[0],init_state[1],init_state[2],init_state[3])
         self._policy = policy_value_fn
         self._c_puct = c_puct
         self._n_playout = n_playout
@@ -243,9 +267,12 @@ class MCTS(object):
         # for the current player.
         action_probs, leaf_value = self._policy(state)
         # Check for end of game.
-        if node._now_player_opt!=8 :
+        if node._now_player_opt!=8 and state.not_mountion_empty():
             # not end
             node.expand(action_probs,state.opt_is_close_kong())
+        
+        if node._now_player_opt!=8 and not state.not_mountion_empty():
+            leaf_value=[0,0,0,0]
         # Update value and visit count of nodes in this traversal.
         node.update_recursive(leaf_value)
 
@@ -297,16 +324,16 @@ class MCTS(object):
             self._root = self._root._children[last_move]
             self._root._parent = None
         else:
-            self._root = TreeNode(None, 1.0, self._root._main_player_id,MCT_Nex(self._root._now_player_id,self._root._now_player_opt,self._root._now_player_opt_state,action,close_kong))
+            mxn=MCT_Nex(self._root._now_player_id,self._root._now_player_opt,self._root._now_player_opt_state,last_move,close_kong)
+            self._root = MCT_TreeNode(None, 1.0, self._root._main_player_id,mxn[0],mxn[1],mxn[2])
 
     def __str__(self):
         return "MCTS"
 
 class Game_State(object):
-    opt_num_move=[136,136,136,16,5,13,49,2,0]
-    opt_name=['draw','dora','discard','ron','kong','pong','chow','reach','end']
     def __init__(self, init_message):
-        #局面表示缺少完整的宝牌表示，牌河和宝牌指示器没有宝牌表示
+        self.opt_num_move=[136,136,136,16,5,13,49,2,0]
+        self.opt_name=['draw','dora','discard','ron','kong','pong','chow','reach','end']
         self.seat=init_message['seat']# 0-3
         self.see_opponent=init_message['opponent']# 0/1
         
@@ -329,13 +356,13 @@ class Game_State(object):
         self.openhand=init_message['openhand']#4*8(4*2)*136*1
         self.river=init_message['river']#4*34*136*1
         self.reach=init_message['reach']#4*1*136*1
-        self.selfwind==init_message['selfwind']#4*1*136*1
+        self.selfwind=init_message['selfwind']#4*1*136*1
         ## 得点与速度 4*36(3*12)*136*1
         
         self.mountion=init_message['mountion']#int 1*136*1
         self.mountion_detail=init_message['mountion_detail']#1*136*1
         self.see_all=init_message['see_all']#1*136*1
-        self.last_card=init_message['see_all']#int 1*36*1
+        self.last_card=init_message['last_card']#int 1*36*1
         #共340*136*1
         
         #不在网络输入里，辅助局面转移
@@ -344,7 +371,7 @@ class Game_State(object):
         self.open_cnt=init_message['open_cnt']
         
     def do_action(self,action,close_kong=0,extra=None):
-        nex_mct_state=MCT_Nex(self.now_player_id,self.now_player_opt,self.now_player_opt_state,close_kong)
+        nex_mct_state=MCT_Nex(self.now_player_id,self.now_player_opt,self.now_player_opt_state,action,close_kong)
         #change state
         if self.now_player_opt==0 :
             self.last_card=action
@@ -406,8 +433,10 @@ class Game_State(object):
                         self.open_cnt[next_player]+=1
                     else :
                         for i in range(self.open_cnt[next_player]):
-                            if self.openhand[next_player][i*2][card_type*4][0]==1 or self.openhand[next_player][i*2][card_type*4][1]==1 :
+                            if self.openhand[next_player][i*2][card_type*4][0]==1 or self.openhand[next_player][i*2][card_type*4+1][0]==1 :
                                 for j in range(4):
+                                    if self.openhand[next_player][i*2][card_type*4+j][0]==0:
+                                        self.last_card=card_type*4+j
                                     self.openhand[next_player][i*2][card_type*4+j][0]=1
                                 break
                 for i in range(4):
@@ -464,20 +493,25 @@ class Game_State(object):
                 pass
             else :
                 self.reach[self.now_player_id][0][self.time][0]=1    
-        self.now_player_id,self.now_player_opt,self.now_player_opt_state=nex_mct_state
+        self.now_player_id=nex_mct_state[0]
+        self.now_player_opt=nex_mct_state[1]
+        self.now_player_opt_state=nex_mct_state[2]
         
     def get_num_move(self):
-        return opt_num_move[self.now_player_opt]
+        return self.opt_num_move[self.now_player_opt]
+    
+    def not_mountion_empty(self):
+        return self.mountion!=0
         
     def opt_is_close_kong(self):
         if self.now_player_opt!=2 :
             return 0
         if self.now_player_opt_state==1 :
             return 0
-        card_type=(self.last_draw//4)*4
+        card_type=(self.last_card//4)*4
         if self.see_opponent or self.now_player_id==0 :
             for i in range(4):
-                if self.closehand[self.now_player_id][card_type+i]==0 :
+                if self.closehand[self.now_player_id][0][card_type+i]==0 :
                     return 0
         else :
             for i in range(4):
@@ -486,10 +520,10 @@ class Game_State(object):
         return 1
     
     def get_mct_state(self):
-        return self.main_player_id,self.now_player_id,self.now_player_opt,self.now_player_opt_state
+        return self.seat,self.now_player_id,self.now_player_opt,self.now_player_opt_state
         
         
-    def check_get_point_subfunc(now_closehand,new_card,now_openhand,now_open_cnt,now_reach,now_reach_b,now_combo,now_wind,now_selfwind,now_dora):
+    def check_get_point_subfunc(self,now_closehand,new_card,now_openhand,now_open_cnt,now_reach,now_reach_b,now_combo,now_wind,now_selfwind,now_dora):
         #import mahjong
         closehand=[i for i in range(136) if now_closehand[i]==1]
         melds=get_melds(now_openhand,now_open_cnt)
@@ -510,7 +544,7 @@ class Game_State(object):
         now_closehand=[1 if self.closehand[player][0][i][0]==1 else 0 for i in range(136)]
         now_close_cnt=0
         for i in range(136):
-            if now_closehand[i][0]:
+            if now_closehand[i]:
                 now_close_cnt+=1
         now_openhand=self.openhand[player]
         now_open_cnt=self.open_cnt[player]
@@ -533,7 +567,7 @@ class Game_State(object):
             if now_mountion[i]==0:
                 continue
             now_closehand[i]=1
-            if check_get_point_subfunc(now_closehand,i,now_openhand,now_open_cnt,now_reach,now_reach_b,now_combo,now_wind,now_selfwind,now_dora)>=target :
+            if self.check_get_point_subfunc(now_closehand,i,now_openhand,now_open_cnt,now_reach,now_reach_b,now_combo,now_wind,now_selfwind,now_dora)>=target :
                 return 1
             if time>0 :
                 now_mountion[i]=0
@@ -545,7 +579,7 @@ class Game_State(object):
                         if now_mountion[k]==0:
                             continue
                             now_closehand[k]=1
-                            if check_get_point_subfunc(now_closehand,k,now_openhand,now_open_cnt,now_reach_b,now_combo,now_wind,now_selfwind,now_dora)>=target :
+                            if self.check_get_point_subfunc(now_closehand,k,now_openhand,now_open_cnt,now_reach_b,now_combo,now_wind,now_selfwind,now_dora)>=target :
                                 return 1
                             if time>1 :
                                 now_mountion[k]=0
@@ -557,7 +591,7 @@ class Game_State(object):
                                         if now_mountion[m]==0:
                                             continue
                                         now_closehand[m]=1
-                                        if check_get_point_subfunc(now_closehand,m,now_openhand,now_open_cnt,now_reach_b,now_combo,now_wind,now_selfwind,now_dora)>=target :
+                                        if self.check_get_point_subfunc(now_closehand,m,now_openhand,now_open_cnt,now_reach_b,now_combo,now_wind,now_selfwind,now_dora)>=target :
                                             return 1
                                         now_closehand[m]=0
                                     now_closehand[l]=1
@@ -569,49 +603,54 @@ class Game_State(object):
         return 0
     
     def get_gain_speed(self,player):
-        gs=np.array()
+        gs=[]
         if player!=0 and self.see_opponent==0 :
             for i in range(36):
                 gs.append([[0] for j in range(136)])
         else :
-            for i in range(3):
+            for i in range(2):
                 for j in range(12):
-                    gs.append([[1] if check_get_point(player,i,k,self.point_target[j]) else [0] for k in range(136)])
+                    gs.append([[1] if self.check_get_point(player,i,k,self.point_target[j]) else [0] for k in range(136)])
         return gs
         
     def get_state_340_136_1(self):
-        now_state=np.array()
-        # now_state.appned(self.get_score())
+        now_state=[]
+        # now_state.append(self.get_score())
         for player in range(4):
-            now_state.appned([[1] if j<34 and self.score[player]&(1<<j) else [0] for j in range(136)])
-        now_state.appned([[1] if i==self.combo else [0] for i in range(136)])
-        now_state.appned([[1] if i==self.reach_b else [0] for i in range(136)])
-        now_state.appned([[1] if i==self.time else [0] for i in range(136)])
-        now_state.appned([[1] if i==self.seat else [0] for i in range(136)])
-        now_state.appned([[1] if i==self.round else [0] for i in range(136)])
-        now_state.appned([[1] if i==self.now_player_id else [0] for i in range(136)])
-        now_state=now_state+self.wind
-        now_state=now_state+self.dora
+            now_state.append([[1] if j<34 and self.score[player]&(1<<j) else [0] for j in range(136)])
+        now_state.append([[1] if i==self.combo else [0] for i in range(136)])
+        now_state.append([[1] if i==self.reach_b else [0] for i in range(136)])
+        now_state.append([[1] if i==self.time else [0] for i in range(136)])
+        now_state.append([[1] if i==self.seat else [0] for i in range(136)])
+        now_state.append([[1] if i==self.round else [0] for i in range(136)])
+        now_state.append([[1] if i==self.now_player_id else [0] for i in range(136)])
+        now_state.append(self.wind[0])
+        now_state.append(self.dora[0])
         
         for player in range(4):
-            now_state= now_state+self.closehand[player]
-            now_state= now_state+self.openhand[player]
-            now_state= now_state+self.river[player]
-            now_state= now_state+self.reach[player]
-            now_state= now_state+self.selfwind[player]
-            now_state= now_state+self.get_gain_speed(player)
-        
-        now_state.appned([[1] if i==self.mountion else [0] for i in range(136)])
-        now_state= now_state+self.mountion_detail
-        now_state= now_state+self.see_all
-        now_state.appned([[1] if i==self.last_card else [0] for i in range(136)])
+            now_state.append(self.closehand[player][0])
+            for i in range(8):
+                now_state.append(self.openhand[player][i])
+            for i in range(34):
+                now_state.append(self.river[player][i])
+            now_state.append(self.reach[player][0])
+            now_state.append(self.selfwind[player][0])
+            # gs=self.get_gain_speed(player)
+            # for i in range(36):
+                # now_state.append(gs[i])
+        now_state.append([[1] if i==self.mountion else [0] for i in range(136)])
+        now_state.append(self.mountion_detail[0])
+        now_state.append(self.see_all[0])
+        now_state.append([[1] if i==self.last_card else [0] for i in range(136)])
+        now_state=np.array(now_state)
+        # print("shape:",now_state.shape)
         return now_state
     
-    def check_can_ron(player,who_discard):
+    def check_can_ron(self,player,who_discard):
         now_closehand=[1 if self.closehand[player][0][i][0]==1 else 0 for i in range(136)]
         now_close_cnt=0
         for i in range(136):
-            if now_closehand[i][0]:
+            if now_closehand[i]:
                 now_close_cnt+=1
         now_openhand=self.openhand[player]
         now_open_cnt=self.open_cnt[player]
@@ -630,13 +669,65 @@ class Game_State(object):
         for m in melds:
             for tile in m.tiles:
                 closehand.append(tile)
+        now_dora=self.dora[0]
         dora=[i for i in range(136) if now_dora[i][0]==1]
         wind=[i for i in range(136) if now_wind[i][0]==1][0]//4
         selfwind=[i for i in range(136) if now_selfwind[i][0]==1][0]//4
         calculator = HandCalculator()
         result = calculator.estimate_hand_value(closehand,now_card,melds,dora,HandConfig(is_tsumo=(player==who_discard),is_riichi=(now_reach==1) ,player_wind=selfwind,round_wind=wind,options=tenhou_option))
+        return not (result.cost is None)
     
-    def check_can_reach(player):
+    def get_score_d(self,player,who_discard):
+        now_closehand=[1 if self.closehand[player][0][i][0]==1 else 0 for i in range(136)]
+        now_close_cnt=0
+        for i in range(136):
+            if now_closehand[i]:
+                now_close_cnt+=1
+        now_openhand=self.openhand[player]
+        now_open_cnt=self.open_cnt[player]
+        now_reach=0
+        for i in range(136):
+            if self.reach[player][0][i][0]==1:
+                now_reach=1
+        now_wind=self.wind[0]
+        now_selfwind=self.selfwind[player][0]
+        now_card=self.last_card
+        if player!=who_discard :
+            now_closehand[now_card]=1
+        #import mahjong
+        closehand=[i for i in range(136) if now_closehand[i]==1]
+        melds=get_melds(now_openhand,now_open_cnt)
+        for m in melds:
+            for tile in m.tiles:
+                closehand.append(tile)
+        now_dora=self.dora[0]
+        dora=[i for i in range(136) if now_dora[i][0]==1]
+        wind=[i for i in range(136) if now_wind[i][0]==1][0]//4
+        selfwind=[i for i in range(136) if now_selfwind[i][0]==1][0]//4
+        calculator = HandCalculator()
+        result = calculator.estimate_hand_value(closehand,now_card,melds,dora,HandConfig(is_tsumo=(player==who_discard),is_riichi=(now_reach==1) ,player_wind=selfwind,round_wind=wind,options=tenhou_option))
+        score_d=[0,0,0,0]
+        if result.cost is None:
+            return score_d
+        else :
+            self.reach_b=0
+            wd=wind-27-player
+            if wd<0:
+                wd+=4
+            if player==who_discard:
+                for i in range(4):
+                    if i==player:
+                        score_d[i]=result.cost['total']//100
+                    else :
+                        if (wd+player)%4==0:
+                            score_d[i]=-result.cost['main_bonus']//100
+                        else :
+                            score_d[i]=-result.cost['additional_bonus']//100
+            else:
+                score_d[player]=result.cost['total']//100
+                score_d[who_discard]=-result.cost['main_bonus']//100
+    
+    def check_can_reach(self,player):
         if self.open_cnt[player]>0 :
             return 0
         now_reach=self.reach[player][0]
@@ -669,7 +760,7 @@ class Game_State(object):
             if self.now_player_opt_state==0 or self.now_player_opt_state==4:
                 legal_actions.append(0)
                 if self.now_player_id==0 or self.see_opponent==1 :
-                    if check_can_ron(self.now_player_id,self.now_player_id) :
+                    if self.check_can_ron(self.now_player_id,self.now_player_id) :
                         legal_actions.append(1<<self.now_player_id)
                 else :
                     legal_actions.append(1<<self.now_player_id)
@@ -681,14 +772,14 @@ class Game_State(object):
                         flag=1
                         for j in range(4):
                             if i&(1<<j) and (j==0 or self.see_opponent==1):
-                                flag &= check_can_ron(j,self.now_player_id)
+                                flag &= self.check_can_ron(j,self.now_player_id)
                         if flag:
                             legal_actions.append(i)
                         
         if self.now_player_opt==4:
             legal_actions.append(0)
             card_type=self.last_card//4
-            if self.now_player_opt_state==1:
+            if self.now_player_opt_state==1 or self.now_player_opt_state==3:
                 for i in range(3):
                     next_player=(self.now_player_id+i+1)%4
                     if next_player==0 or self.see_opponent==1 :
@@ -807,14 +898,14 @@ class Game_State(object):
         if self.now_player_opt==7:
             legal_actions.append(0)
             if self.now_player_id==0 or self.see_opponent==1 :
-                if check_can_reach(self.now_player_id):
+                if self.check_can_reach(self.now_player_id):
                     legal_actions.append(1)
             else :
                 legal_actions.append(1)
         
         return legal_actions
     def current_state(self):       
-        return self.get_state_340_136_1,opt_name[self.now_player_opt],self.get_legal_actions()
+        return self.get_state_340_136_1(),self.opt_name[self.now_player_opt],self.get_legal_actions()
     
 class MCTSPlayer(object):
     def __init__(self, policy_value_function, n_playout,c_puct=5,is_selfplay=0):
@@ -823,17 +914,17 @@ class MCTSPlayer(object):
         self._c_puct=c_puct
         self._policy_value_function=policy_value_function
         
-    def set_game_state(round_init_message):
+    def set_game_state(self,round_init_message):
         self.game_state=Game_State(round_init_message)
         self.mcts = MCTS(self._policy_value_function, self._c_puct, self._n_playout, self.game_state.get_mct_state())
         
     def get_action(self, temp=1e-3):
         # the pi vector returned by MCTS as in the alphaGo Zero paper
-        mp,np,nop,nops=self.game_state.get_mct_state()
-        if nop==4 and np!=0 :
+        mp,npi,nop,nops=self.game_state.get_mct_state()
+        if nop==4 and npi!=0 :
             # 鸣牌
             move=np.array([0,0,0])
-            move_probs=np.arry([np.zeros(5),np.zeros(13),np.zeros(49)])
+            move_probs=np.array([np.zeros(5),np.zeros(13),np.zeros(49)])
             acts, probs = self.mcts.get_move_probs(self.game_state, temp)
             move_probs[0][list(acts)] = probs
             if self._is_selfplay:
@@ -851,9 +942,9 @@ class MCTSPlayer(object):
                     move[1] = np.random.choice(acts,p=_p)
                 else:
                     move[1] = np.random.choice(acts,p=_p)
-                if move[1]>0 and (nop+((move[1]-1)//4))%4!=mp :
+                if move[1]>0 and (npi+((move[1]-1)//4))%4!=mp :
                     move[1]=0
-                if move[1]==0 and (np+1)%4==mp :
+                if move[1]==0 and (npi+1)%4==mp :
                     acts, probs = self.mcts.get_move_probs_chow(temp)
                     move_probs[2][list(acts)] = probs
                     if self._is_selfplay:
@@ -869,13 +960,26 @@ class MCTSPlayer(object):
             acts, probs = self.mcts.get_move_probs(self.game_state, temp)
             move_probs[list(acts)] = probs
             if nop==3 :
-                tmp=np.array([0,0])
-                for i in range(16):
-                    tmp[i%2]+=move_probs[i]
-                _p=tmp
-                acts=np.array([0,1])
+                cnt=0
+                for i in acts:
+                    if i&(1<<mp):
+                        cnt+=1
+                if cnt==0:
+                    _p=np.array([1])
+                    acts=np.array([0])
+                else:
+                    tmp=np.array([0,0])
+                    for i in range(16):
+                        if i&(1<<mp):
+                            tmp[0]+=move_probs[i]
+                        else:
+                            tmp[1]+=move_probs[i]
+                    _p=tmp
+                    acts=np.array([0,1])
+            else:
+                _p=probs
             if self._is_selfplay:
-                move = np.random.choice(acts,p=0.75*_P + 0.25*np.random.dirichlet(0.3*np.ones(len(_p))))
+                move = np.random.choice(acts,p=0.75*_p + 0.25*np.random.dirichlet(0.3*np.ones(len(_p))))
             else:
                 move = np.random.choice(acts,p=_p)
             return move

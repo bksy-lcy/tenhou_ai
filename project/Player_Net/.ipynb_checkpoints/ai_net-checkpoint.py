@@ -17,8 +17,8 @@ class ResidualBlock(nn.Module):
     """残差块"""
     def __init__(self, in_channels, out_channels):
         super(ResidualBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels ,kernel_size=(3,1), padding=1)
-        self.conv2 = nn.Conv2d(in_channels, out_channels ,kernel_size=(3,1), padding=1)
+        self.conv1 = nn.Conv2d(in_channels, out_channels ,kernel_size=(3,3), padding=1)
+        self.conv2 = nn.Conv2d(in_channels, out_channels ,kernel_size=(3,3), padding=1)
 
     def forward(self, x):
         residual = x
@@ -33,12 +33,12 @@ class Net(nn.Module):
     
     def __init__(self, num_output = None):
         super(Net, self).__init__()
-        self.in_channel_num=340
+        self.in_channel_num=196 #340
         self.tile_type=136
-        self.tile_type_32=self._type*32
+        self.tile_type_32=self.tile_type*32
         self.num_output = num_output
         # common layers
-        self.conv1 = nn.Conv2d(self.in_channel_num,256,kernel_size=(3,1), padding=1)
+        self.conv1 = nn.Conv2d(self.in_channel_num,256,kernel_size=(3,3), padding=1)
         self.res1 = ResidualBlock(256,256)
         self.res2 = ResidualBlock(256,256)
         self.res3 = ResidualBlock(256,256)
@@ -46,7 +46,7 @@ class Net(nn.Module):
         self.res5 = ResidualBlock(256,256)
         # action policy layers
         if num_output:
-            self.act_conv1 = nn.Conv2d(256, 32,kernel_size=(3,1), padding=1)
+            self.act_conv1 = nn.Conv2d(256, 32,kernel_size=(3,3), padding=1)
             self.act_fc1 = nn.Linear(self.tile_type_32, 1024)
             self.act_fc2 = nn.Linear(1024, 256)
             self.act_fc3 = nn.Linear(256, num_output)
@@ -54,7 +54,7 @@ class Net(nn.Module):
             self.act_conv1 = nn.Conv2d(256, 1, kernel_size=1)
             self.act_fc1 = nn.Linear(self.tile_type, self.tile_type)
         # state value layers
-        self.val_conv1 = nn.Conv2d(256, 32,kernel_size=(3,1), padding=1)
+        self.val_conv1 = nn.Conv2d(256, 32,kernel_size=(3,3), padding=1)
         self.val_fc1 = nn.Linear(self.tile_type_32, 1024)
         self.val_fc2 = nn.Linear(1024, 256)
         self.val_fc3 = nn.Linear(256, 4) 
@@ -91,7 +91,7 @@ class Net(nn.Module):
 class PolicyValueNet():
     """policy-value network """
     def __init__(self, model_file=None, use_gpu=True):
-        self.in_channel_num=340
+        self.in_channel_num=196 # 340
         self.tile_type=136
         self.use_gpu = use_gpu
         self.l2_const = 1e-4  # coef of l2 penalty
