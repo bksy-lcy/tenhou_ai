@@ -794,7 +794,7 @@ class Game_State(object):
                         for j in range(4):
                             if self.see_all[0][card_type*4+j][0]==0:
                                 cnt+=1
-                        if cnt==3:
+                        if cnt==3 and self.open_cnt[next_player]<4 :
                             legal_actions.append(i+2)
             else :
                 if self.now_player_id==0 or self.see_opponent==1 :
@@ -825,7 +825,7 @@ class Game_State(object):
                                 cc+=1
                         if cc==3 :
                             flag=1
-                    if cnt==4 or flag:
+                    if (cnt==4 and self.open_cnt[next_player]<4) or (flag and self.open_cnt[next_player]<=4 ):
                         legal_actions.append(1)
         if self.now_player_opt==5:
             legal_actions.append(0)
@@ -860,7 +860,7 @@ class Game_State(object):
                             card1=card3
                         if card2==self.last_card :
                             card2=card3
-                        if self.see_all[0][card1][0]==0 and self.see_all[0][card2][0]==0:
+                        if self.see_all[0][card1][0]==0 and self.see_all[0][card2][0]==0  and self.open_cnt[next_player]<4 :
                             legal_actions.append(1+i*4+j)
             
         if self.now_player_opt==6:    
@@ -880,7 +880,7 @@ class Game_State(object):
                             continue
                         for j in range(4):
                             for k in range(4):
-                                if self.closehand[next_player][0][card1*4+j][0]==1 and self.closehand[next_player][0][card2*4+k][0]==1:
+                                if self.closehand[next_player][0][card1*4+j][0]==1 and self.closehand[next_player][0][card2*4+k][0]==1 and self.open_cnt[next_player]<4 :
                                     legal_actions.append(1+i*4*4+j*4+k)
                 else :
                     for i in range(3):
@@ -892,7 +892,7 @@ class Game_State(object):
                             continue
                         for j in range(4):
                             for k in range(4):
-                                if self.see_all[0][card1*4+j][0]==0 and self.see_all[0][card2*4+k][0]==0:
+                                if self.see_all[0][card1*4+j][0]==0 and self.see_all[0][card2*4+k][0]==0 and self.open_cnt[next_player]<4 :
                                     legal_actions.append(1+i*4*4+j*4+k)
                             
         if self.now_player_opt==7:
@@ -942,9 +942,9 @@ class MCTSPlayer(object):
                     move[1] = np.random.choice(acts,p=_p)
                 else:
                     move[1] = np.random.choice(acts,p=_p)
-                if move[1]>0 and (nop+((move[1]-1)//4))%4!=mp :
+                if move[1]>0 and (npi+((move[1]-1)//4))%4!=mp :
                     move[1]=0
-                if move[1]==0 and (np+1)%4==mp :
+                if move[1]==0 and (npi+1)%4==mp :
                     acts, probs = self.mcts.get_move_probs_chow(temp)
                     move_probs[2][list(acts)] = probs
                     if self._is_selfplay:

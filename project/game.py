@@ -123,18 +123,22 @@ class Game_Server(object):
                 data_set[action_type[i]]=[[],[],[]]
             round_is_continue=True
             card=136
-            print("new round start")
+            f = open("train_log.txt", "a")
+            print("new round start",file = f)
             for i in range(4):
-                print(score[i],[x//4 for x in hand[i]])
+                print(score[i],[x//4 for x in hand[i]],file = f)
+            f.close()
             while round_is_continue:
                 _,pid,pop,pos=all_state.get_mct_state()
+                f = open("train_log.txt", "a")
                 #print(all_state.get_mct_state())
                 #for i in range(4):
                     #print(players[i].game_state.get_mct_state())
-                print("last action is: ",card)
-                print("round is continue,now is:",pid,pop,pos)
+                print("last action is: ",card,file = f)
+                print("round is continue,now is:",pid,pop,pos,file = f)
                 for pid_out in range(4):
-                    print(score[pid_out],[x//4 for x in range(136) if all_state.closehand[pid_out][0][x][0]==1],[[y//4 for y in range(136) if all_state.openhand[pid_out][x*2][yall_state.last_card//4][0]==1]for x in range(all_state.open_cnt[pid_out])])
+                    print(score[pid_out],[x//4 for x in range(136) if all_state.closehand[pid_out][0][x][0]==1],[[y//4 for y in range(136) if all_state.openhand[pid_out][x*2][y][0]==1]for x in range(all_state.open_cnt[pid_out])],file = f)
+                f.close()
                 if pop==0:
                     card=mountion[0]
                     mountion=mountion[1:]

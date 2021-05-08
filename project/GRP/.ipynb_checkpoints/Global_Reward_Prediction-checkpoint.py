@@ -131,7 +131,7 @@ if __name__ == '__main__':
         target_batch = np.array(target_batch)
         # print(grp.get_loss(state_batch, target_batch))
         print(i,grp.train_step(state_batch, target_batch))
-    grp.save_model('grp_300_extra_3.model')
+    grp.save_model('grp_300_extra_4.model')
     # '''
     # '''
     # test
@@ -147,7 +147,7 @@ if __name__ == '__main__':
         state_batch = np.array(state_batch)
         target_batch = np.array(target_batch)
         print(grp.get_loss(state_batch, target_batch))
-        choiced_idx = np.random.choice(512,4,replace=False)
+        choiced_idx = np.random.choice(512,16,replace=False)
         state = []
         target = []
         for idx in choiced_idx:
@@ -156,6 +156,6 @@ if __name__ == '__main__':
         state = np.array(state)
         target = np.array(target)
         predict = grp.get_reward(state)
-        for j in range(4):
+        for j in range(16):
             print(state[j],target[j],predict[j])
     # '''

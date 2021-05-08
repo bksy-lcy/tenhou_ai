@@ -92,13 +92,17 @@ class TrainPipeline():
         try:
             for i in range(self.game_batch_num):
                 self.collect_selfplay_data(self.play_batch_size)
-                print("batch i:{}, episode_len:{}".format(i+1, self.episode_len))
+                f = open("train_log.txt", "a")
+                print("batch i:{}, episode_len:{}".format(i+1, self.episode_len),file = f)
+                f.close()
                 for i in range(8):
                     if len(self.data_buffer[i]) > self.batch_size:
                         act_tp, loss, entropy = self.policy_update(i)
                 # check the performance of the current model, and save the model params
                 if (i+1) % self.check_freq == 0:
-                    print("current self-play batch: {}".format(i+1))
+                    f = open("train_log.txt", "a")
+                    print("current self-play batch: {}".format(i+1),file = f)
+                    f.close()
                     self.policy_value_net.save_model('./current_policy.model')
         except KeyboardInterrupt:
             print('\n\rquit')
